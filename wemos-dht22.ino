@@ -1,4 +1,4 @@
-﻿#include <ESP8266WiFi.h>          //https://github.com/esp8266/Arduino
+#include <ESP8266WiFi.h>          //https://github.com/esp8266/Arduino
 
 //needed for library
 #include <DNSServer.h>
@@ -16,6 +16,9 @@ const int WIFI_TIMEOUT = 60;
 
 const char* host = "api.thingspeak.com";
 const char* THINGSPEAK_API_KEY = "";
+
+unsigned int raw = 0;
+float volt = 0.0;
 
 void setup() {
   Serial.begin(115200);
@@ -40,6 +43,12 @@ void setup() {
 
   //if you get here you have connected to the WiFi
   Serial.println("connected to access point");
+
+  pinMode(A0, INPUT);
+  raw = analogRead(A0);
+  volt = raw / 1023.0;
+  volt = volt * 4.2;
+
   dht.begin();
 }
 
@@ -74,27 +83,35 @@ void loop() {
     Serial.print(" %\t");
     Serial.print("Temperatur: ");
     Serial.print(temperature);
-    Serial.println(" C");
+    Serial.print(" C");
+    Serial.print(" ");
+    Serial.print("Spannung: ");
+    Serial.print(volt);
+    Serial.println(" Volt");
+
+    // We now create a URI for the request
+    String url = "/update?api_key=";
+    url += THINGSPEAK_API_KEY;
+    url += "&field1=";
+    url += String(temperature);
+    url += "&field2=";
+    url += String(humidity);
+    url += "&field3=";
+    url += String(volt);
+
+    Serial.println("Sending values to thingspeak...");
+
+    // This will send the request to the server
+    client.print(String("GET ") + url + " HTTP/1.1\r\n" +
+                 "Host: " + host + "\r\n" +
+                 "Connection: close\r\n\r\n");
+    delay(10);
+    while (!client.available()) {
+      delay(100);
+    }
   }
 
-  // We now create a URI for the request
-  String url = "/update?api_key=";
-  url += THINGSPEAK_API_KEY;
-  url += "&field1=";
-  url += String(temperature);
-  url += "&field2=";
-  url += String(humidity);
 
-  Serial.println("Sending values to thingspeak...");
-
-  // This will send the request to the server
-  client.print(String("GET ") + url + " HTTP/1.1\r\n" +
-               "Host: " + host + "\r\n" +
-               "Connection: close\r\n\r\n");
-  delay(10);
-  while (!client.available()) {
-    delay(100);
-  }
 
   setDeepSleep();
 
